@@ -28,28 +28,49 @@ class WaypointUpdater(object):
     def __init__(self):
         rospy.init_node('waypoint_updater')
 
+        # TODO: Add other member variables you need below
+        self.base_wp = None
+        self.base_wp_cnt = 0
+        self.final_wp = None
+        self.pos = None
+
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
-
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
-        # TODO: Add other member variables you need below
 
         rospy.spin()
 
     def pose_cb(self, msg):
-        # TODO: Implement
-        pass
+        '''
+        Callback for /traffic_waypoint message. Implement
+        :param msg: geometry_msgs/PoseStamped with current position of vehicle
+        '''
+        # get nearest waypoints and publish them 
+        rospy.loginfo('New position %f', msg.pose.position.x)
+        closest_wp_idx = self.get_closest_waypoint(msg.pose.position, self.base_wp)
+        rospy.loginfo('Closest waypoint idx %i', closest_wp_idx)
+        # self.final_waypoints_pub.publish(final_wp)
+        self.pos = msg
 
     def waypoints_cb(self, waypoints):
-        # TODO: Implement
-        pass
+        '''
+        Callback to get all waypoints, this is published only once 
+        :param waypoints: styx_msgs/Lane static waypoints provided by csv
+        '''
+        rospy.loginfo('Got %i base waypoints', len(waypoints.waypoints))
+        # rospy.loginfo('First waypoint, X: %f, Y: %f, v: %f', 
+        # waypoints.waypoints[0].pose.pose.position.x, 
+        # waypoints.waypoints[0].pose.pose.position.y, 
+        # waypoints.waypoints[0].twist.twist.linear.x
+        # )
+        self.base_wp = waypoints.waypoints
+        self.base_wp_cnt = len(self.base_wp)
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
         pass
 
     def obstacle_cb(self, msg):
@@ -69,6 +90,19 @@ class WaypointUpdater(object):
             dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
             wp1 = i
         return dist
+
+    def distance(self, a, b):
+        return math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
+
+    def get_closest_waypoint(self, pos, waypoints):
+        closest_len = 1000000 # large umber
+        closest_idx = 0
+        for i,w in enumerate(waypoints):
+            dist = self.distance(pos, w.pose.pose.position)
+            if dist < closest_len:
+                closest_len = dist
+                closest_idx =  i
+        return closest_idx
 
 
 if __name__ == '__main__':
