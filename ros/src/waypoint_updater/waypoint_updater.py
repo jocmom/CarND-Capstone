@@ -33,6 +33,7 @@ class WaypointUpdater(object):
         self.base_wp_cnt = 0
         self.final_wp = None
         self.pos = None
+        self.closest_wp_idx = 0
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -40,9 +41,14 @@ class WaypointUpdater(object):
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
-
-
+        self.update()
         rospy.spin()
+    
+    def update(self):
+        if self.base_wp == None or self.pos == None:
+            return
+        closest_wp_idx = self.get_closest_waypoint(self.pos, self.base_wp)
+        self.publish_final_waypoints(closest_wp_idx)
 
     def pose_cb(self, msg):
         '''
@@ -62,11 +68,6 @@ class WaypointUpdater(object):
         :param waypoints: styx_msgs/Lane static waypoints provided by csv
         '''
         rospy.loginfo('Got %i base waypoints', len(waypoints.waypoints))
-        # rospy.loginfo('First waypoint, X: %f, Y: %f, v: %f', 
-        # waypoints.waypoints[0].pose.pose.position.x, 
-        # waypoints.waypoints[0].pose.pose.position.y, 
-        # waypoints.waypoints[0].twist.twist.linear.x
-        # )
         self.base_wp = waypoints.waypoints
         self.base_wp_cnt = len(self.base_wp)
 
@@ -101,8 +102,20 @@ class WaypointUpdater(object):
             dist = self.distance(pos, w.pose.pose.position)
             if dist < closest_len:
                 closest_len = dist
-                closest_idx =  i
+                closest_idx = i
         return closest_idx
+
+    def publish_final_waypoints(self, wp_idx):
+        final_waypoints = Lane()
+        final_waypoints.header.stamp = self.pos.header.stamp
+        final_waypoints.header.frame_id = self.pos.header.frame_id
+        # if self.closest_wp_idx + LOOKAHEAD_WPS >= self.base_wp_cnt:
+        #     final_waypoints.waypoints
+
+        last_idx = self.closest_wp_idx + LOOKAHEAD_WPS
+        final_waypoints.waypoints = self.base_wp[self.closest_wp_idx:last_idx+1]
+        self.final_waypoints_pub(final_waypoints)
+        
 
 
 if __name__ == '__main__':
