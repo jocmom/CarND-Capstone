@@ -45,9 +45,10 @@ class WaypointUpdater(object):
         rospy.spin()
     
     def update(self):
-        if self.base_wp == None or self.pos == None:
+        if self.base_wp is None or self.pos is None:
             return
         closest_wp_idx = self.get_closest_waypoint(self.pos, self.base_wp)
+        rospy.loginfo('Closest waypoint idx %i', closest_wp_idx)
         self.publish_final_waypoints(closest_wp_idx)
 
     def pose_cb(self, msg):
@@ -57,8 +58,6 @@ class WaypointUpdater(object):
         '''
         # get nearest waypoints and publish them 
         rospy.loginfo('New position %f', msg.pose.position.x)
-        closest_wp_idx = self.get_closest_waypoint(msg.pose.position, self.base_wp)
-        rospy.loginfo('Closest waypoint idx %i', closest_wp_idx)
         # self.final_waypoints_pub.publish(final_wp)
         self.pos = msg
 
@@ -113,7 +112,12 @@ class WaypointUpdater(object):
         #     final_waypoints.waypoints
 
         last_idx = self.closest_wp_idx + LOOKAHEAD_WPS
-        final_waypoints.waypoints = self.base_wp[self.closest_wp_idx:last_idx+1]
+        if last_idx + 1 > self.base_wp_cnt:
+            last_idx = last_idx - self.base_wp_cnt
+            final_waypoints.waypoints = self.base_wp[self.closest_wp_idx:] + \
+                                        self.base_wp_cnt[:last_idx]
+        else:
+            final_waypoints.waypoints = self.base_wp[self.closest_wp_idx:last_idx+1]
         self.final_waypoints_pub(final_waypoints)
         
 
